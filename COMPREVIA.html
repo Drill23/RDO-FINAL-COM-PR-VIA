@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador de Rendimento Otimizado</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
+    <style>
+        /* Define color palette using CSS variables */
+        :root {
+            --primary-bg: #f4f7f6;
+            --secondary-bg: #ffffff;
+            --header-bg: #e9ecef;
+            --table-header-bg: #dee2e6;
+            --button-blue: #007bff;
+            --button-blue-hover: #0056b3;
+            --button-green: #28a745;
+            --button-green-hover: #1e7e34;
+            --button-yellow: #ffc107;
+            --button-yellow-hover: #d39e00;
+            --button-purple: #6f42c1;
+            --button-purple-hover: #5a32a3;
+            --button-purple-light: #9d78db; /* For Semanal T1 */
+            --button-purple-light-hover: #8a5fcf;
+            --button-purple-dark: #4d2d8a; /* For Semanal T2 */
+            --button-purple-dark-hover: #3e2177;
+            --button-grey: #6c757d;
+            --button-grey-hover: #545b62;
+            --button-red: #dc3545; /* PDF Export */
+            --button-red-hover: #bd2130;
+            --button-orange: #fd7e14; /* Cor para Prévia */
+            --button-orange-hover: #e66a00; /* Cor hover para Prévia */
+            --text-color: #333;
+            --positive: #28a745; /* Green */
+            --negative: #dc3545; /* Red */
+            --border-color: #dee2e6;
+            --na-meta: #6c757d; /* Grey for 'Na Meta' or neutral */
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--primary-bg);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1350px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: var(--secondary-bg);
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--button-blue);
+            margin-bottom: 30px;
+            /* PDF Print Optimization: Avoid breaking heading */
+             page-break-after: avoid;
+        }
+
+        .menu, .acoes {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .menu-section {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+         .menu-section:last-child {
+             border-bottom: none;
+             margin-bottom: 0;
+             padding-bottom: 0;
+         }
+         .menu-section h3 {
+            margin-bottom: 10px;
+            color: var(--button-grey);
+            font-size: 1.1em;
+            font-weight: 600;
+         }
+
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 15px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            transition: background-color 0.3s ease;
+            vertical-align: middle;
+        }
+        button:disabled { /* Estilo para botões desabilitados */
+            cursor: not-allowed;
+            opacity: 0.6;
+            background-color: var(--button-grey) !important; /* Garante cor cinza */
+        }
+
+        button:hover:not(:disabled) { /* Aplica hover apenas se não estiver desabilitado */
+            opacity: 0.9;
+        }
+
+
+        /* Button Styles */
+        .btn-turno1 { background-color: var(--button-blue); }
+        .btn-turno1:hover:not(:disabled) { background-color: var(--button-blue-hover); }
+        .btn-turno2 { background-color: var(--button-green); }
+        .btn-turno2:hover:not(:disabled) { background-color: var(--button-green-hover); }
+        .btn-comparar-dia { background-color: var(--button-yellow); color: #333; }
+        .btn-comparar-dia:hover:not(:disabled) { background-color: var(--button-yellow-hover); }
+        .btn-semanal-t1 { background-color: var(--button-purple-light); }
+        .btn-semanal-t1:hover:not(:disabled) { background-color: var(--button-purple-light-hover); }
+        .btn-semanal-t2 { background-color: var(--button-purple-dark); }
+        .btn-semanal-t2:hover:not(:disabled) { background-color: var(--button-purple-dark-hover); }
+        .btn-comparar-semana { background-color: var(--button-purple); }
+        .btn-comparar-semana:hover:not(:disabled) { background-color: var(--button-purple-hover); }
+        .btn-pdf { background-color: var(--button-red); }
+        .btn-pdf:hover:not(:disabled) { background-color: var(--button-red-hover); }
+        .btn-voltar { background-color: var(--button-grey); }
+        .btn-voltar:hover:not(:disabled) { background-color: var(--button-grey-hover); }
+        /* Estilos para botões de prévia */
+        .btn-previa { background-color: var(--button-orange); }
+        .btn-previa:hover:not(:disabled) { background-color: var(--button-orange-hover); }
+
+
+        .info {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: var(--header-bg);
+            border-radius: 5px;
+            text-align: center;
+            /* PDF Print Optimization */
+            page-break-after: avoid;
+        }
+
+        #status {
+            text-align: center;
+            font-style: italic;
+            color: var(--button-grey);
+            margin: 20px;
+        }
+
+        .content-area {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            margin-top: 20px;
+            position: relative;
+            /* PDF Print Optimization: Try to keep the whole area together if possible */
+            /* This might be too restrictive if the content is very long */
+            /* page-break-inside: avoid; */
+        }
+
+        table {
+            margin: 20px auto;
+            border-collapse: collapse;
+            width: 100%;
+            background: #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+            overflow: hidden;
+            font-size: 0.9em;
+            /* PDF Print Optimization: Avoid breaking table mid-row (browser support varies) */
+            border-spacing: 0; /* Needed for some page-break rules */
+             page-break-inside: auto; /* Allow breaks inside table generally */
+        }
+         /* Try to avoid breaking inside a row */
+         tr {
+            page-break-inside: avoid !important;
+            page-break-after: auto;
+         }
+         /* Ensure header repeats if table breaks (browser PDF generators often do this) */
+         thead {
+             display: table-header-group;
+         }
+          tbody {
+              display: table-row-group;
+          }
+
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: middle;
+        }
+
+        th {
+            background-color: var(--table-header-bg);
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 0.8em;
+            letter-spacing: 0.05em;
+            white-space: nowrap;
+        }
+
+        td:last-child, th:last-child {
+            text-align: center;
+        }
+        td.numeric, th.numeric {
+            text-align: right;
+            white-space: nowrap;
+        }
+        td.center, th.center {
+            text-align: center;
+        }
+
+        .positivo { color: var(--positive); font-weight: bold; }
+        .negativo { color: var(--negative); font-weight: bold; }
+        .na-meta { color: var(--na-meta); }
+
+        .summary {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #eef;
+            border-left: 5px solid var(--button-blue);
+            border-radius: 4px;
+            font-size: 1.1em;
+            /* PDF Print Optimization */
+            page-break-before: auto; /* Allow break before if needed */
+            page-break-inside: avoid !important; /* Try hard to keep summary together */
+        }
+         .summary strong { color: var(--button-blue); }
+
+        .chart-container {
+             position: relative;
+             margin: auto;
+             margin-top: 30px;
+             height: 40vh; /* Slightly reduced height to help fitting */
+             width: 95%;
+             background: #fff;
+             padding: 15px;
+             border-radius: 5px;
+             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+             display: block !important;
+             /* PDF Print Optimization: Crucial part! */
+             page-break-inside: avoid !important;
+             page-break-before: auto; /* Allow break before if needed */
+             overflow: hidden; /* Prevent potential overflow issues */
+        }
+
+        canvas {
+            display: block;
+            max-width: 100%; /* Use max-width */
+            max-height: 100%; /* Use max-height */
+            width: auto !important; /* Let container control size */
+            height: auto !important; /* Let container control size */
+        }
+
+        .acoes-visao {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+            /* PDF Print Optimization: Avoid breaking just before the button */
+             page-break-before: avoid;
+        }
+
+        /* Styles specifically for PDF generation (can be added via JS if needed) */
+        @media print {
+           body {
+               -webkit-print-color-adjust: exact !important; /* Chrome, Safari */
+               color-adjust: exact !important; /* Firefox, Edge */
+               font-size: 9pt; /* Smaller font for print */
+           }
+           .container {
+               box-shadow: none;
+               border: none;
+               margin: 0;
+               max-width: 100%;
+           }
+           button, .menu, .acoes {
+               display: none !important; /* Hide all buttons in print */
+           }
+           .content-area {
+               box-shadow: none;
+               border: none;
+               padding: 0;
+               margin: 0;
+           }
+           .chart-container {
+               height: 35vh; /* Maybe even smaller for print */
+               width: 100%;
+               padding: 5px;
+           }
+           /* Ensure page breaks are respected */
+           .chart-container, .summary, tr {
+               page-break-inside: avoid !important;
+           }
+           h1, .info {
+               page-break-after: avoid;
+           }
+           .acoes-visao {
+              display: none !important; /* Hide action area in print */
+           }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Visualizador de Rendimento Otimizado</h1>
+
+        <div class="menu">
+            <!-- Menu sections -->
+             <div class="menu-section">
+                <h3>Análise Diária</h3>
+                <button class="btn-turno1" onclick="mostrar('diario1')" disabled>🔵 Diário T1</button> <!-- Inicia desabilitado -->
+                <button class="btn-turno2" onclick="mostrar('diario2')" disabled>🟢 Diário T2</button> <!-- Inicia desabilitado -->
+                <button class="btn-comparar-dia" onclick="mostrar('comparar_dia')" disabled>🟡 Comparar Dia</button> <!-- Inicia desabilitado -->
+                <!-- NOVOS BOTÕES DE PRÉVIA -->
+                <button class="btn-previa btn-previa-t1" onclick="mostrar('previa1')" disabled>🟠 Prévia T1</button> <!-- Inicia desabilitado -->
+                <button class="btn-previa btn-previa-t2" onclick="mostrar('previa2')" disabled>🟠 Prévia T2</button> <!-- Inicia desabilitado -->
+            </div>
+            <div class="menu-section">
+                <h3>Análise Semanal</h3>
+                <button class="btn-semanal-t1" onclick="mostrar('semanal1')" disabled>🟣 Semanal T1</button> <!-- Inicia desabilitado -->
+                <button class="btn-semanal-t2" onclick="mostrar('semanal2')" disabled>🟣 Semanal T2</button> <!-- Inicia desabilitado -->
+                <button class="btn-comparar-semana" onclick="mostrar('comparar_semana')" disabled>🟣 Comparar Semana</button> <!-- Inicia desabilitado -->
+            </div>
+        </div>
+
+        <div id="info" class="info" style="display:none;"></div>
+        <div id="status">⏳ Carregando arquivos...</div>
+        <div class="acoes">
+             <button class="btn-voltar voltar" onclick="voltarMenu()" style="display:none;">🔙 Voltar ao Menu</button>
+        </div>
+
+        <div class="content-area" id="contentArea" style="display:none;">
+            <!-- Info Title (prepended by JS for PDF) -->
+            <div id="resultado"></div> <!-- Table and Summary here -->
+
+            <!-- Chart Containers -->
+            <div id="graficoIndividualContainer" class="chart-container" style="display:none;">
+                 <canvas id="graficoIndividual"></canvas>
+            </div>
+            <div id="graficoComparativoContainer" class="chart-container" style="display:none;">
+                 <canvas id="graficoComparativo"></canvas>
+            </div>
+
+             <!-- Actions specific to the current view -->
+             <div class="acoes-visao">
+                 <button class="btn-pdf btn-pdf-visao" onclick="exportarPDF_VisaoAtual()" style="display:none;">📄 Exportar Esta Visão em PDF</button>
+             </div>
+        </div>
+
+    </div>
+
+<script>
+    let dados = {};
+    let arquivos = {}; // Mapeia chave (e.g., 'diario1') para nome do arquivo (e.g., 'quinta.feira....json')
+    let graficoComparativoInstancia = null;
+    let graficoIndividualInstancia = null;
+
+    // --- Função para extrair informações do nome do arquivo ---
+    function extrairInfo(nomeArquivo) {
+        // Retorno padrão caso o nome seja inválido ou nulo
+        if (!nomeArquivo) return { nome: 'N/A', tipo: 'N/A', diaSemana: 'N/A', data: 'N/A', turno: 'N/A', tituloPeriodo: 'N/A', isPreview: false };
+
+        // Verifica se é prévia ANTES de remover a extensão
+        const isPreview = nomeArquivo.includes('_previa.json');
+        // Remove sufixo de prévia (se houver) e extensão .json
+        const nomeBase = nomeArquivo.replace('_previa.json', '').replace('.json', '');
+        const partes = nomeBase.split('.');
+
+        const tipo = partes[0] === "semana" ? "semanal" : "diario";
+        // Determina o turno
+        const turno = partes.includes("turno1") ? "Turno 1" : (partes.includes("turno2") ? "Turno 2" : "N/A");
+        let diaSemana = "N/A", data = "N/A", tituloPeriodo = "N/A";
+
+        // Extrai informações de data/semana com base no tipo
+        if (tipo === "diario" && partes.length >= 5) {
+            diaSemana = partes[0].charAt(0).toUpperCase() + partes[0].slice(1) + (partes[1] === "feira" ? "-feira" : "");
+            data = partes[2] + "/" + partes[3] + "/20" + partes[4];
+            tituloPeriodo = `${diaSemana}, ${data}`;
+        } else if (tipo === "semanal" && partes.length >= 4) {
+             // Assume formato como semana.DDaDD.MM.AA
+             const diasSemana = partes[1].replace('a', ' a '); // Ex: 22a24 -> 22 a 24
+             const mes = partes[2];
+             const ano = "20" + partes[3];
+             tituloPeriodo = `Semana de ${diasSemana}/${mes}/${ano}`;
+             data = ""; // Data específica não aplicável para semanal
+        }
+
+        // Adiciona marcador "PRÉVIA" ao título se necessário
+        const prefixoTitulo = isPreview ? "⚠️ PRÉVIA - " : "";
+
+        return {
+            nome: nomeArquivo, // Nome original do arquivo
+            tipo, // 'diario' ou 'semanal'
+            diaSemana, // Nome do dia ou 'Semana...'
+            data, // Data formatada DD/MM/AAAA (ou vazio para semanal)
+            turno, // 'Turno 1' ou 'Turno 2'
+            tituloPeriodo: `${prefixoTitulo}${tituloPeriodo}`, // Título formatado para exibição
+            isPreview // true se for um arquivo de prévia, false caso contrário
+        };
+    }
+
+    // --- Função para destruir gráficos existentes ---
+    function destruirGraficos() {
+        console.log("Tentando destruir gráficos...");
+        if (graficoComparativoInstancia) {
+            graficoComparativoInstancia.destroy();
+            graficoComparativoInstancia = null;
+            console.log("Gráfico comparativo destruído.");
+        }
+        if (graficoIndividualInstancia) {
+            graficoIndividualInstancia.destroy();
+            graficoIndividualInstancia = null;
+            console.log("Gráfico individual destruído.");
+        }
+        // Garante que os contêineres dos gráficos sejam escondidos
+        document.getElementById("graficoComparativoContainer").style.display = "none";
+        document.getElementById("graficoIndividualContainer").style.display = "none";
+    }
+
+    // --- Função para voltar ao menu principal ---
+    function voltarMenu() {
+        destruirGraficos();
+        document.querySelector(".menu").style.display = 'block'; // Mostra menu
+        document.querySelector(".voltar").style.display = 'none'; // Esconde botão voltar
+        document.getElementById("info").style.display = 'none'; // Esconde cabeçalho de informação
+        document.getElementById("contentArea").style.display = 'none'; // Esconde área de conteúdo
+        document.getElementById("resultado").innerHTML = ""; // Limpa resultados anteriores
+        document.querySelector('.btn-pdf-visao').style.display = 'none'; // Esconde botão PDF da visão
+    }
+
+    // --- Função para exportar a visão atual para PDF ---
+    async function exportarPDF_VisaoAtual() {
+        console.log("Iniciando exportação PDF da visão atual...");
+        const elementToCapture = document.getElementById('contentArea');
+        const infoDiv = document.getElementById('info');
+        const pdfButton = document.querySelector('.btn-pdf-visao');
+        const originalPdfButtonDisplay = pdfButton.style.display;
+
+        // --- Prepara para Captura ---
+        pdfButton.style.display = 'none'; // Esconde o botão de exportar
+
+        // Cria um elemento de título temporário para incluir no PDF
+        const titleElement = document.createElement('div');
+        titleElement.innerHTML = infoDiv.innerHTML; // Copia o conteúdo do cabeçalho atual
+        titleElement.className = 'info'; // Usa a classe CSS existente para estilo consistente
+        titleElement.style.display = 'block'; // Garante que esteja visível
+        // Insere o título no início da área de conteúdo
+        elementToCapture.insertBefore(titleElement, elementToCapture.firstChild);
+
+        // --- Configura Opções do PDF ---
+        const infoText = infoDiv.innerText || 'Visao_Atual';
+        // Cria um nome de arquivo seguro, removendo caracteres especiais
+        const filename = `relatorio_${infoText.substring(0, 40).replace(/[^a-z0-9]/gi, '_')}.pdf`;
+
+        const opt = {
+          margin:       [0.4, 0.4, 0.4, 0.4], // Margens T, L, B, R em polegadas
+          filename:     filename,
+          image:        { type: 'jpeg', quality: 0.98 }, // Qualidade da imagem
+          html2canvas:  {
+              scale: 2, // Aumenta a resolução da captura
+              useCORS: true,
+              logging: false,
+              dpi: 192, // DPI mais alto pode melhorar a qualidade
+               onrendered: function(canvas) { // Ajustes pós-renderização (opcional)
+                 const ctx = canvas.getContext('2d');
+                 ctx.webkitImageSmoothingEnabled = false;
+                 ctx.mozImageSmoothingEnabled = false;
+                 ctx.imageSmoothingEnabled = false;
+               }
+          },
+          jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' }, // Formato paisagem A4
+          // Opções de quebra de página baseadas em seletores CSS
+           pagebreak:    {
+               mode: ['css', 'avoid-all'], // Prioriza regras CSS, tenta evitar quebras
+               avoid: ['.chart-container', '.summary', 'tr', 'h1', '.info'] // Evita quebrar dentro desses elementos
+           }
+        };
+
+        try {
+            console.log(`Gerando PDF: ${filename} a partir de #contentArea`);
+            // Desabilita animações do Chart.js temporariamente para captura consistente
+            Chart.defaults.animation.duration = 0;
+
+            await html2pdf().from(elementToCapture).set(opt).save(); // Gera e salva o PDF
+            console.log("PDF da visão atual gerado com sucesso.");
+        } catch (error) {
+            console.error("Erro ao gerar PDF da visão atual:", error);
+            alert("Ocorreu um erro ao gerar o PDF desta visão. Verifique o console para detalhes.");
+        } finally {
+            // --- Limpeza Pós-Captura ---
+            elementToCapture.removeChild(titleElement); // Remove o título temporário
+            pdfButton.style.display = originalPdfButtonDisplay; // Restaura a visibilidade do botão
+            Chart.defaults.animation.duration = 500; // Reabilita animações do Chart.js
+            console.log("Limpeza pós-PDF concluída.");
+        }
+    }
+
+    // --- Função para exibir o cabeçalho da visão atual ---
+    function mostrarCabecalho(info1, info2 = null) {
+        const div = document.getElementById("info");
+        let titulo = "";
+        const tipoRelatorio = info1.tipo === 'semanal' ? 'Semanal' : 'Diário'; // Ajusta tipo se for prévia
+        const corIcone1 = info1.turno === 'Turno 1' ? '🔵' : '🟢';
+        const corIcone2 = info2 ? (info2.turno === 'Turno 1' ? '🔵' : '🟢') : '';
+        const prefixoPrevia = info1.isPreview ? '⚠️ PRÉVIA ' : ''; // Adiciona prefixo se for prévia
+
+        if (info2) { // Modo Comparativo
+            titulo = `📊 Comparativo ${tipoRelatorio} (${info1.tituloPeriodo.replace('⚠️ PRÉVIA - ','')})<br>${corIcone1} ${info1.turno} vs ${corIcone2} ${info2.turno}`;
+        } else { // Modo Individual ou Prévia
+             titulo = `📄 ${prefixoPrevia}Relatório ${tipoRelatorio} (${info1.tituloPeriodo.replace('⚠️ PRÉVIA - ','')})<br>${corIcone1} ${info1.turno}`;
+        }
+        div.innerHTML = titulo;
+        div.style.display = 'block';
+    }
+
+    // --- Função para gerar e exibir a tabela de dados ---
+    function mostrarTabela(dadosTurno1, infoTurno1, modo = 'diarioIndividual', dadosTurno2 = null, infoTurno2 = null) {
+        let html = "<table><thead><tr><th>Produto</th>";
+        const labels = []; // Labels para o gráfico
+        const dadosGrafico1 = []; // Dados do turno 1 para o gráfico
+        const dadosGrafico2 = []; // Dados do turno 2 (ou meta) para o gráfico
+
+        destruirGraficos(); // Limpa gráficos anteriores
+        console.log(`Modo de Tabela: ${modo}`);
+
+        if (modo === 'comparativo' && dadosTurno2 && infoTurno2) {
+            // --- Tabela Comparativa ---
+            html += `<th class="numeric">${infoTurno1.turno} (%)</th><th class="numeric">${infoTurno2.turno} (%)</th><th class="numeric">Dif. (%)</th><th class="numeric">Dif. (Kg)</th><th class="numeric">Dif. (Cx)</th><th class="center">🏆 Melhor Turno</th></tr></thead><tbody>`;
+            let vitorias1 = 0, vitorias2 = 0, empates = 0;
+            const produtosProcessados = new Set(); // Para evitar duplicar produtos no loop
+
+            // Itera sobre os dados do Turno 1
+            for (let item1 of dadosTurno1) {
+                const produto = item1.produto;
+                produtosProcessados.add(produto); // Marca produto como visto
+                const item2 = dadosTurno2.find(it => it.produto === produto); // Encontra item correspondente no Turno 2
+                const realizado1 = parseFloat(item1.realizado) || 0;
+                html += `<tr><td>${produto}</td><td class="numeric">${realizado1.toFixed(3)}%</td>`;
+
+                if (item2) { // Se o produto existe no Turno 2
+                    const realizado2 = parseFloat(item2.realizado) || 0;
+                    const quilos1 = parseFloat(item1.quilos) || 0;
+                    const quilos2 = parseFloat(item2.quilos) || 0;
+                    const caixas1 = parseFloat(item1.caixas) || 0;
+                    const caixas2 = parseFloat(item2.caixas) || 0;
+                    const diffPerc = realizado2 - realizado1;
+                    const diffKg = quilos2 - quilos1;
+                    const diffCx = Math.round(caixas2) - Math.round(caixas1);
+                    let melhorTurno = "Empate 🤔";
+                    let classeMelhor = "na-meta";
+
+                    if (diffPerc > 0.0001) { // Turno 2 melhor
+                        melhorTurno = `${infoTurno2.turno} 🟢`; vitorias2++; classeMelhor = 'positivo';
+                    } else if (diffPerc < -0.0001) { // Turno 1 melhor
+                        melhorTurno = `${infoTurno1.turno} 🔵`; vitorias1++; classeMelhor = 'negativo';
+                    } else { empates++; } // Empate
+
+                    // Define classes CSS para colorir as diferenças
+                    const classeDiffPerc = diffPerc > 0.0001 ? 'positivo' : (diffPerc < -0.0001 ? 'negativo' : 'na-meta');
+                    const classeDiffKg = diffKg > 0 ? 'positivo' : (diffKg < 0 ? 'negativo' : 'na-meta');
+                    const classeDiffCx = diffCx > 0 ? 'positivo' : (diffCx < 0 ? 'negativo' : 'na-meta');
+
+                    html += `<td class="numeric">${realizado2.toFixed(3)}%</td><td class="numeric ${classeDiffPerc}">${diffPerc >= 0 ? '+' : ''}${diffPerc.toFixed(3)}%</td><td class="numeric ${classeDiffKg}">${diffKg >= 0 ? '+' : ''}${diffKg.toFixed(2)}</td><td class="numeric ${classeDiffCx}">${diffCx >= 0 ? '+' : ''}${diffCx}</td><td class="center ${classeMelhor}">${melhorTurno}</td>`;
+                    labels.push(produto); dadosGrafico1.push(realizado1); dadosGrafico2.push(realizado2);
+                } else { // Produto não existe no Turno 2
+                    html += `<td class="center">-</td><td colspan="4" class="center"><i>Não produzido no ${infoTurno2.turno}</i></td><td class="center">${infoTurno1.turno} 🔵</td>`;
+                    labels.push(produto); dadosGrafico1.push(realizado1); dadosGrafico2.push(NaN); // Usa NaN para gráfico
+                }
+                html += `</tr>`;
+            }
+
+            // Itera sobre os dados do Turno 2 para encontrar produtos exclusivos
+            for (let item2 of dadosTurno2) {
+                if (!produtosProcessados.has(item2.produto)) { // Se não foi processado no loop anterior
+                    const produto = item2.produto;
+                    const realizado2 = parseFloat(item2.realizado) || 0;
+                    html += `<tr><td>${produto}</td><td class="center">-</td><td class="numeric">${realizado2.toFixed(3)}%</td><td colspan="3" class="center"><i>Não produzido no ${infoTurno1.turno}</i></td><td class="center">${infoTurno2.turno} 🟢</td></tr>`;
+                    labels.push(produto); dadosGrafico1.push(NaN); dadosGrafico2.push(realizado2);
+                }
+            }
+            html += "</tbody></table>";
+
+            // Adiciona resumo comparativo
+            html += `<div class="summary"><strong>Resumo Comparativo (${infoTurno1.tipo === 'semanal' ? 'Semanal' : 'Diário'}):</strong><br>🔵 ${infoTurno1.turno} venceu em ${vitorias1} produto(s).<br>🟢 ${infoTurno2.turno} venceu em ${vitorias2} produto(s).<br>🤔 Empates em ${empates} produto(s).<br><strong>🏆 Vencedor Geral: ${vitorias1 > vitorias2 ? infoTurno1.turno : (vitorias2 > vitorias1 ? infoTurno2.turno : 'Empate Técnico')}</strong></div>`;
+            desenharGraficoComparativo(labels, dadosGrafico1, dadosGrafico2, infoTurno1.turno, infoTurno2.turno);
+
+        } else {
+            // --- Tabela Individual (Diário, Semanal ou Prévia) ---
+             if (modo === 'semanalIndividual') {
+                 html += `<th class="numeric">Meta (%)</th><th class="numeric">Realizado (%)</th><th class="numeric">Dif. (%)</th><th class="numeric">Diferença (Kg)</th><th class="numeric">Diferença (Cx)</th><th class="center">Status</th></tr></thead><tbody>`;
+             } else { // Modo 'diarioIndividual' (usado também para prévias)
+                 html += `<th class="numeric">Meta (%)</th><th class="numeric">Realizado (%)</th><th class="numeric">Dif. (%)</th><th class="center">Meta Atingida</th><th class="numeric">Quilos (Kg)</th><th class="numeric">Caixas</th></tr></thead><tbody>`;
+             }
+
+             for (let item of dadosTurno1) {
+                 const produto = item.produto;
+                 const meta = parseFloat(item.meta) || 0;
+                 const realizado = parseFloat(item.realizado) || 0;
+                 const quilos = parseFloat(item.quilos) || 0;
+                 const caixas = parseFloat(item.caixas) || 0;
+                 const caixasArredondadas = Math.round(caixas);
+                 const diffPerc = realizado - meta;
+                 const classeDiffPerc = Math.abs(diffPerc) < 0.0001 ? 'na-meta' : (diffPerc > 0 ? 'positivo' : 'negativo');
+                 const diffPercentFormatted = `${diffPerc >= 0 ? '+' : ''}${diffPerc.toFixed(3)}%`;
+
+                 html += `<tr><td>${produto}</td><td class="numeric">${meta.toFixed(3)}%</td><td class="numeric">${realizado.toFixed(3)}%</td><td class="numeric ${classeDiffPerc}">${diffPercentFormatted}</td>`;
+
+                 if (modo === 'semanalIndividual') {
+                     // Cálculo complexo de diferença Kg/Cx para semanal (mantido como estava)
+                     let diffKgNum = 0; let diffCaixasNum = 0; let statusLabel = ""; let statusClass = ""; let displayDiffKg = "N/A"; let displayDiffCx = "N/A";
+                    if (meta > 0 && realizado > 0) { const fator = meta / realizado; const targetKg = quilos * fator; const targetCaixas = caixas * fator; diffKgNum = quilos - targetKg; const diffCaixasPrecise = caixas - targetCaixas; diffCaixasNum = Math.ceil(Math.abs(diffCaixasPrecise)); displayDiffKg = `${diffKgNum >= 0 ? '+' : ''}${diffKgNum.toFixed(2)}`; displayDiffCx = `${diffKgNum >= 0 ? '+' : '-'}${diffCaixasNum}`; }
+                    else if (meta == 0 && realizado == 0) { diffKgNum = 0; diffCaixasNum = 0; displayDiffKg = "+0.00"; displayDiffCx = "+0"; }
+                    else if (meta > 0 && realizado == 0) { diffKgNum = -Infinity; diffCaixasNum = -Infinity; displayDiffKg = "(Falta)"; displayDiffCx = "(Falta)"; }
+                    else if (meta == 0 && realizado > 0) { diffKgNum = quilos; diffCaixasNum = caixasArredondadas; displayDiffKg = `+${quilos.toFixed(2)}`; displayDiffCx = `+${caixasNum}`; }
+                    if (Math.abs(diffKgNum) < 0.01 && Math.abs(diffPerc) < 0.0001) { statusLabel = "🎯 Na Meta"; statusClass = "na-meta"; displayDiffKg = "+0.00"; displayDiffCx = "+0"; } else if (diffKgNum > 0 || (meta == 0 && realizado > 0)) { statusLabel = "✅ Excedente"; statusClass = "positivo"; } else { statusLabel = "❌ Faltou"; statusClass = "negativo"; }
+                     html += `<td class="numeric ${statusClass}">${displayDiffKg}</td><td class="numeric ${statusClass}">${displayDiffCx}</td><td class="center ${statusClass}">${statusLabel}</td>`;
+                 } else { // Modo 'diarioIndividual' ou 'previa'
+                     const atingiu = realizado >= meta ? "✅" : "❌";
+                     html += `<td class="center">${atingiu}</td><td class="numeric">${quilos.toFixed(2)}</td><td class="numeric">${caixasArredondadas}</td>`;
+                 }
+                 html += `</tr>`;
+                 labels.push(produto);
+                 dadosGrafico1.push(meta); // Meta vai no primeiro dataset
+                 dadosGrafico2.push(realizado); // Realizado vai no segundo dataset
+            }
+            html += "</tbody></table>";
+            // Chama gráfico individual (Meta vs Realizado)
+            desenharGraficoIndividual(labels, dadosGrafico1, dadosGrafico2, infoTurno1.turno, modo, infoTurno1.isPreview);
+        }
+
+        document.getElementById("resultado").innerHTML = html;
+        document.getElementById("contentArea").style.display = 'block'; // Mostra a área de conteúdo
+        document.querySelector('.btn-pdf-visao').style.display = 'inline-block'; // Mostra o botão de exportar PDF
+    }
+
+    // --- Função para desenhar o gráfico comparativo (Turno 1 vs Turno 2) ---
+    function desenharGraficoComparativo(labels, data1, data2, label1, label2) {
+        console.log("Desenhando gráfico COMPARATIVO...");
+        const container = document.getElementById("graficoComparativoContainer");
+        const canvas = document.getElementById("graficoComparativo");
+        container.style.display = "block"; // Mostra container do gráfico comparativo
+        document.getElementById("graficoIndividualContainer").style.display = "none"; // Esconde o outro
+        const ctx = canvas.getContext('2d');
+        if (graficoComparativoInstancia) { graficoComparativoInstancia.destroy(); } // Destroi instância anterior
+
+        try {
+             graficoComparativoInstancia = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: `${label1} (% Realizado)`,
+                            backgroundColor: 'rgba(54, 162, 235, 0.7)', // Azul
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1,
+                            data: data1,
+                            skipNull: true // Ignora valores NaN (não produzidos)
+                        },
+                        {
+                            label: `${label2} (% Realizado)`,
+                            backgroundColor: 'rgba(75, 192, 192, 0.7)', // Verde-azulado
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1,
+                            data: data2,
+                            skipNull: true // Ignora valores NaN (não produzidos)
+                        }
+                    ]
+                },
+                options: commonChartOptions('Comparativo de Rendimento (% Realizado)') // Usa opções comuns
+            });
+            console.log("Instância do gráfico comparativo criada:", graficoComparativoInstancia);
+        } catch (error) {
+            console.error("Erro ao criar gráfico comparativo:", error);
+            container.innerHTML = "<p class='negativo'>Erro ao renderizar o gráfico comparativo.</p>";
+        }
+    }
+
+    // --- Função para desenhar o gráfico individual (Meta vs Realizado) ---
+    function desenharGraficoIndividual(labels, metas, realizados, turnoLabel, modo, isPreview = false) {
+         console.log("Desenhando gráfico INDIVIDUAL...");
+         const container = document.getElementById("graficoIndividualContainer");
+         const canvas = document.getElementById("graficoIndividual");
+         container.style.display = "block"; // Mostra container do gráfico individual
+         document.getElementById("graficoComparativoContainer").style.display = "none"; // Esconde o outro
+         const ctx = canvas.getContext('2d');
+         if (graficoIndividualInstancia) { graficoIndividualInstancia.destroy(); } // Destroi instância anterior
+
+        // Define cores com base no turno
+        const turnoColorMeta = 'rgba(255, 159, 64, 0.7)'; // Laranja para Meta
+        const turnoColorRealizado = turnoLabel.includes("1") ? 'rgba(54, 162, 235, 0.7)' : 'rgba(75, 192, 192, 0.7)'; // Azul para T1, Verde para T2
+        const tipoGrafico = modo.includes('semanal') ? 'Semanal' : 'Diário';
+        const prefixoTitulo = isPreview ? "PRÉVIA " : ""; // Adiciona prefixo ao título do gráfico
+
+        try {
+            graficoIndividualInstancia = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Meta (%)',
+                            backgroundColor: turnoColorMeta,
+                            borderColor: 'rgba(255, 159, 64, 1)',
+                            borderWidth: 1,
+                            data: metas
+                        },
+                        {
+                            label: 'Realizado (%)',
+                            backgroundColor: turnoColorRealizado,
+                            borderColor: turnoLabel.includes("1") ? 'rgba(54, 162, 235, 1)' : 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1,
+                            data: realizados
+                        }
+                    ]
+                },
+                options: commonChartOptions(`${prefixoTitulo}Rendimento ${tipoGrafico} ${turnoLabel}: Meta vs Realizado (%)`) // Usa opções comuns com título adaptado
+            });
+            console.log("Instância do gráfico individual criada:", graficoIndividualInstancia);
+        } catch (error) {
+            console.error("Erro ao criar gráfico individual:", error);
+            container.innerHTML = "<p class='negativo'>Erro ao renderizar o gráfico individual.</p>";
+        }
+    }
+
+    // --- Opções comuns para os gráficos Chart.js ---
+    function commonChartOptions(titleText) {
+        return {
+            responsive: true, // Torna o gráfico responsivo
+            maintainAspectRatio: false, // Permite que o gráfico não mantenha a proporção
+            plugins: {
+                legend: { position: 'top' }, // Posição da legenda
+                title: { display: true, text: titleText, font: { size: 16 } }, // Título do gráfico
+                tooltip: { // Configuração dos tooltips (ao passar o mouse)
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) { label += ': '; }
+                            // Formata valor para 3 casas decimais com '%'
+                            if (context.parsed.y !== null && !isNaN(context.parsed.y)) {
+                                label += context.parsed.y.toFixed(3) + '%';
+                            } else {
+                                label += 'N/D'; // Caso o valor não seja um número
+                            }
+                            return label;
+                        }
+                    }
+                }
+            },
+            scales: { // Configuração dos eixos
+                y: { // Eixo Y (Percentual)
+                    beginAtZero: true, // Começa em 0
+                    ticks: { callback: function(value) { return value + '%'; } }, // Adiciona '%' aos ticks
+                    title: { display: true, text: 'Percentual (%)' } // Título do eixo Y
+                },
+                x: { // Eixo X (Produtos)
+                    ticks: {
+                        autoSkip: false, // Não pula labels automaticamente
+                        maxRotation: 70, // Rotação máxima para caber
+                        minRotation: 0 // Rotação mínima
+                    }
+                }
+            },
+            animation: { duration: 0 } // Desabilita animação para PDF (pode ser reabilitada fora do PDF)
+        };
+    }
+
+    // --- Função principal para mostrar a visualização solicitada ---
+    async function mostrar(tipo) {
+        console.log(`Solicitado mostrar: ${tipo}`);
+        // Esconde/mostra elementos da interface
+        document.querySelector(".menu").style.display = 'none';
+        document.querySelector(".voltar").style.display = 'inline-block';
+        document.getElementById("info").style.display = 'none';
+        document.getElementById("contentArea").style.display = 'none';
+        document.querySelector('.btn-pdf-visao').style.display = 'none';
+        destruirGraficos(); // Limpa gráficos anteriores
+
+        // Obtém as informações dos arquivos mapeados (pode ser null se não carregado)
+        const infoDiario1 = extrairInfo(arquivos.diario1);
+        const infoDiario2 = extrairInfo(arquivos.diario2);
+        const infoSemanal1 = extrairInfo(arquivos.semanal1);
+        const infoSemanal2 = extrairInfo(arquivos.semanal2);
+        const infoPrevia1 = extrairInfo(arquivos.diario1_previa); // Info da prévia 1
+        const infoPrevia2 = extrairInfo(arquivos.diario2_previa); // Info da prévia 2
+
+        let dataAvailable = true; // Flag para verificar se os dados necessários estão disponíveis
+
+        try {
+            let data1, info1, data2 = null, info2 = null, modoTabela;
+
+            // Determina quais dados e informações usar com base no 'tipo' clicado
+            switch(tipo) {
+                case "diario1":
+                    data1 = dados.diario1; info1 = infoDiario1; modoTabela = 'diarioIndividual';
+                    break;
+                case "diario2":
+                    data1 = dados.diario2; info1 = infoDiario2; modoTabela = 'diarioIndividual';
+                    break;
+                case "comparar_dia":
+                    data1 = dados.diario1; info1 = infoDiario1; data2 = dados.diario2; info2 = infoDiario2; modoTabela = 'comparativo';
+                    break;
+                case "semanal1":
+                    data1 = dados.semanal1; info1 = infoSemanal1; modoTabela = 'semanalIndividual';
+                    break;
+                case "semanal2":
+                    data1 = dados.semanal2; info1 = infoSemanal2; modoTabela = 'semanalIndividual';
+                    break;
+                case "comparar_semana":
+                    data1 = dados.semanal1; info1 = infoSemanal1; data2 = dados.semanal2; info2 = infoSemanal2; modoTabela = 'comparativo';
+                    break;
+                // --- CASES PARA PRÉVIA ---
+                case "previa1":
+                    data1 = dados.diario1_previa; info1 = infoPrevia1; modoTabela = 'diarioIndividual'; // Reutiliza modo diário
+                    break;
+                case "previa2":
+                    data1 = dados.diario2_previa; info1 = infoPrevia2; modoTabela = 'diarioIndividual'; // Reutiliza modo diário
+                    break;
+                // --- FIM DOS CASES PARA PRÉVIA ---
+                default:
+                    console.warn("Tipo de visualização desconhecido:", tipo);
+                    dataAvailable = false;
+            }
+
+            // Verifica se os dados primários (data1) foram carregados
+            if (!data1) {
+                dataAvailable = false;
+                console.error(`Dados primários (data1) não disponíveis para ${tipo}. Verifique se o arquivo ${arquivos[tipo]} existe e foi carregado.`);
+            }
+            // Verifica dados secundários (data2) se for modo comparativo
+            if (modoTabela === 'comparativo' && !data2) {
+                 dataAvailable = false;
+                 console.error(`Dados secundários (data2) não disponíveis para ${tipo}. Verifique se o arquivo ${arquivos[tipo.replace('comparar_','').split('_')[0]+'2']} existe e foi carregado.`);
+            }
+
+
+            if (dataAvailable) {
+                mostrarCabecalho(info1, info2); // Mostra o título da visualização
+                mostrarTabela(data1, info1, modoTabela, data2, info2); // Mostra a tabela e chama o gráfico correspondente
+            } else {
+                // Exibe mensagem de erro se dados não estiverem disponíveis
+                let arquivosFaltantes = [];
+                if (!data1) arquivosFaltantes.push(arquivos[tipo] || `arquivo para ${tipo}`);
+                if (modoTabela === 'comparativo' && !data2) arquivosFaltantes.push(arquivos[tipo.replace('comparar_','').split('_')[0]+'2'] || `arquivo complementar para ${tipo}`);
+
+                console.error(`Dados não disponíveis para ${tipo}. Arquivos necessários ausentes ou com erro: ${arquivosFaltantes.join(', ')}`);
+                document.getElementById("info").innerHTML = `❌ Arquivos necessários para a visualização '${tipo}' não foram encontrados ou estão incompletos (${arquivosFaltantes.join(', ')}). Verifique o arquivo index.json e se os arquivos de dados existem no repositório.`;
+                document.getElementById("info").style.display = 'block';
+                document.getElementById("contentArea").style.display = 'none';
+                document.querySelector('.btn-pdf-visao').style.display = 'none';
+            }
+        } catch (error) {
+            // Exibe mensagem de erro genérica em caso de falha no processamento
+            console.error("Erro ao processar 'mostrar' para", tipo, ":", error);
+            destruirGraficos();
+            document.getElementById("info").innerHTML = `❌ Erro ao processar a visualização '${tipo}': ${error.message}. Verifique o console para mais detalhes.`;
+            document.getElementById("info").style.display = 'block';
+            document.getElementById("contentArea").style.display = 'none';
+            document.querySelector('.btn-pdf-visao').style.display = 'none';
+        }
+    }
+
+    // --- Função de inicialização: carrega index.json e dados dos arquivos ---
+    async function iniciar() {
+        try {
+            // 1. Carrega o index.json
+            const response = await fetch("index.json");
+            if (!response.ok) throw new Error(`Erro ao carregar index.json: ${response.status} ${response.statusText}`);
+            const lista = await response.json();
+
+            dados = {}; // Objeto para armazenar os dados carregados
+            arquivos = {}; // Objeto para mapear tipo (e.g., 'diario1') para nome de arquivo
+            const promessas = []; // Array para guardar as promises de fetch
+
+            // 2. Define as chaves esperadas e inicializa o mapeamento
+            const fileMap = {
+                semanal1: null, semanal2: null,
+                diario1: null, diario2: null,
+                diario1_previa: null, diario2_previa: null // Chaves para prévias
+            };
+
+            // 3. Mapeia os arquivos listados no index.json para as chaves
+            for (let nome of lista.arquivos) {
+                const info = extrairInfo(nome); // Usa a função para obter tipo, turno, prévia, etc.
+                let key = null;
+
+                if (info.tipo === "semanal" && info.turno === "Turno 1") key = 'semanal1';
+                else if (info.tipo === "semanal" && info.turno === "Turno 2") key = 'semanal2';
+                else if (info.tipo === "diario" && info.turno === "Turno 1") {
+                    key = info.isPreview ? 'diario1_previa' : 'diario1'; // Mapeia para prévia ou diário
+                } else if (info.tipo === "diario" && info.turno === "Turno 2") {
+                    key = info.isPreview ? 'diario2_previa' : 'diario2'; // Mapeia para prévia ou diário
+                }
+
+                if (key) {
+                    // Pega o primeiro arquivo encontrado para cada chave
+                    if (!fileMap[key]) {
+                       fileMap[key] = nome;
+                    } else {
+                        // Aviso se encontrar múltiplos arquivos para a mesma chave (pode indicar erro no index.json)
+                        console.warn(`Chave '${key}' já mapeada para '${fileMap[key]}'. Ignorando '${nome}'. Verifique index.json.`);
+                    }
+                } else {
+                    console.warn(`Arquivo não classificado ou formato inválido: ${nome}`);
+                }
+            }
+            console.log("Arquivos mapeados preliminarmente:", fileMap);
+
+            // 4. Carrega os dados dos arquivos mapeados
+            for (const key in fileMap) {
+                const nome = fileMap[key]; // Nome do arquivo para esta chave
+                arquivos[key] = nome; // Guarda o nome do arquivo no objeto 'arquivos'
+                if (nome) { // Se um arquivo foi mapeado para esta chave
+                    promessas.push(
+                        fetch(nome) // Inicia o fetch do arquivo JSON
+                        .then(res => {
+                            if (!res.ok) throw new Error(`Falha ao carregar ${nome}: ${res.statusText}`);
+                            return res.json(); // Converte a resposta para JSON
+                        })
+                        .then(data => {
+                            dados[key] = data; // Armazena os dados carregados no objeto 'dados'
+                            console.log(`Dados de ${nome} (chave ${key}) carregados com sucesso.`);
+                        })
+                        .catch(err => {
+                            console.error(`Erro carregando ${nome} (chave ${key}):`, err);
+                            dados[key] = null; // Marca como nulo em caso de erro no carregamento
+                        })
+                    );
+                } else { // Se nenhum arquivo foi mapeado
+                    console.log(`Nenhum arquivo encontrado para a chave: ${key}`);
+                    dados[key] = null; // Garante que a chave exista em dados, mesmo que nula
+                }
+            }
+
+            // 5. Aguarda todas as promises de fetch serem resolvidas
+            await Promise.all(promessas);
+            document.getElementById("status").style.display = "none"; // Esconde mensagem de carregamento
+            console.log("Dados finais carregados:", dados);
+            console.log("Mapeamento final de arquivos:", arquivos);
+
+            // 6. Habilita/Desabilita botões com base nos dados carregados
+            document.querySelector('button[onclick="mostrar(\'diario1\')"]').disabled = !dados.diario1;
+            document.querySelector('button[onclick="mostrar(\'diario2\')"]').disabled = !dados.diario2;
+            document.querySelector('button[onclick="mostrar(\'comparar_dia\')"]').disabled = !(dados.diario1 && dados.diario2);
+            document.querySelector('button[onclick="mostrar(\'semanal1\')"]').disabled = !dados.semanal1;
+            document.querySelector('button[onclick="mostrar(\'semanal2\')"]').disabled = !dados.semanal2;
+            document.querySelector('button[onclick="mostrar(\'comparar_semana\')"]').disabled = !(dados.semanal1 && dados.semanal2);
+            // Habilita/desabilita botões de prévia
+            document.querySelector('button[onclick="mostrar(\'previa1\')"]').disabled = !dados.diario1_previa;
+            document.querySelector('button[onclick="mostrar(\'previa2\')"]').disabled = !dados.diario2_previa;
+
+        } catch (error) {
+            // Exibe erro crítico se a inicialização falhar (e.g., erro ao carregar index.json)
+            console.error("Erro crítico ao iniciar:", error);
+            document.getElementById("status").innerHTML = `❌ Erro crítico ao carregar dados iniciais: ${error.message}. Verifique o console, o arquivo index.json e a conexão.`;
+            document.getElementById("status").style.color = "red";
+            // Desabilita todos os botões em caso de erro crítico
+             document.querySelectorAll('.menu button').forEach(btn => btn.disabled = true);
+        }
+    }
+
+    // --- Inicia o processo quando a janela carregar ---
+    window.onload = iniciar;
+
+</script>
+</body>
+</html>
